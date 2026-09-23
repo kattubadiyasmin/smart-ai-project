@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}My Study Materials - Smart Study{% endblock %}
+
+{% block content %}
+<div class="dashboard-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem;">
+  <div>
+    <h1>My Study Materials</h1>
+    <p>Manage and review all your uploaded study PDFs</p>
+  </div>
+  <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"></path></svg>
+    Upload New Material
+  </a>
+</div>
+
+{% if documents %}
+  <div class="materials-grid">
+    {% for doc in documents %}
+      <div class="doc-card">
+        <div>
+          <div class="doc-header">
+            <div class="doc-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            </div>
+            <div>
+              <h3 class="doc-title">{{ doc.filename }}</h3>
+              <div class="doc-meta">
+                <span>{{ doc.page_count }} Pages</span>
+                <span>&bull;</span>
+                <span>{{ (doc.file_size / 1024) | round(1) }} KB</span>
+                <span>&bull;</span>
+                <span>Uploaded: {{ doc.uploaded_at.split()[0] if doc.uploaded_at else 'Recent' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc-actions">
+          <a href="{{ url_for('study_workspace', doc_id=doc.id) }}" class="btn btn-primary btn-sm">Study Workspace &rarr;</a>
+          <button type="button" class="btn btn-danger btn-sm btn-trigger-delete" data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.filename }}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            Delete
+          </button>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card" style="text-align: center; padding: 4rem 1.5rem;">
+    <div style="font-size: 3rem; margin-bottom: 1rem;">📄</div>
+    <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">You haven't uploaded any study materials yet</h2>
+    <p style="color: var(--text-muted); font-size: 0.9375rem; max-width: 480px; margin: 0 auto 1.5rem;">Start by uploading your first PDF to generate summaries, important questions, active recall flashcards, and practice quizzes.</p>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">Go to Upload Page</a>
+  </div>
+{% endif %}
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal-dialog">
+    <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.5rem;">Delete Study Material?</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9375rem; margin-bottom: 1rem;">
+      Are you sure you want to delete <strong id="deleteModalDocName">this document</strong>? All associated AI summaries, questions, flashcards, and chat history will be permanently deleted.
+    </p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary btn-sm" id="cancelDeleteBtn">Cancel</button>
+      <form id="deleteDocForm" method="POST" style="margin: 0;">
+        <button type="submit" class="btn btn-danger btn-sm">Yes, Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,361 @@
+{% extends "base.html" %}
+
+{% block title %}{{ document.filename }} - Study Workspace - Smart Study{% endblock %}
+
+{% block content %}
+<div id="studyWorkspace" data-doc-id="{{ document.id }}">
+  <!-- Workspace Header Bar -->
+  <div class="workspace-header">
+    <div class="workspace-title-box">
+      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+        <span style="font-size: 1.25rem;">📄</span>
+        <h1>{{ document.filename }}</h1>
+      </div>
+      <div class="workspace-meta">
+        <span><strong>Pages:</strong> {{ document.page_count }}</span>
+        <span>&bull;</span>
+        <span><strong>Words:</strong> ~{{ "{:,}".format(word_count) }}</span>
+        <span>&bull;</span>
+        <span><strong>Size:</strong> {{ (document.file_size / 1024) | round(1) }} KB</span>
+        <span>&bull;</span>
+        <span><strong>Uploaded:</strong> {{ document.uploaded_at.split()[0] if document.uploaded_at else 'Recent' }}</span>
+      </div>
+    </div>
+
+    <div>
+      <a href="{{ url_for('export_pdf', content_type='combined', doc_id=document.id) }}" class="btn btn-outline btn-sm">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Download All Notes PDF
+      </a>
+    </div>
+  </div>
+
+  <!-- Workspace Tab Navigation -->
+  <div class="workspace-tabs">
+    <button class="workspace-tab active" data-tab="overviewPane">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+      Overview
+    </button>
+    <button class="workspace-tab" data-tab="summaryPane">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+      Summary
+    </button>
+    <button class="workspace-tab" data-tab="questionsPane">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+      Important Questions
+    </button>
+    <button class="workspace-tab" data-tab="flashcardsPane">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"></rect><path d="M7 15h0M2 9.5h20"></path></svg>
+      Flashcards
+    </button>
+    <button class="workspace-tab" data-tab="quizPane">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+      MCQ Quiz
+    </button>
+    <button class="workspace-tab" data-tab="chatPane">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      AI Study Assistant
+    </button>
+  </div>
+
+  <!-- =========================================================================
+       TAB 1: OVERVIEW PANE
+       ========================================================================= -->
+  <div class="tab-pane active" id="overviewPane">
+    <div class="card" style="margin-bottom: 1.5rem;">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Study Plan & Learning Modules</h2>
+          <div class="card-subtitle">Choose a module below to start learning and preparing</div>
+        </div>
+        <span class="badge badge-success">Document Indexed</span>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-top: 0.5rem;">
+        <!-- Card 1: Summary -->
+        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📝</div>
+            <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.35rem;">AI Summary</h3>
+            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">Structured 5-section breakdown including key concepts, important points, and exam revision notes.</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="summaryPane" style="margin-top: 1rem; width: 100%;">
+            View Summary &rarr;
+          </button>
+        </div>
+
+        <!-- Card 2: Questions -->
+        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">❓</div>
+            <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.35rem;">Important Questions</h3>
+            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">5 critical exam questions with complete model answers and conceptual explanations.</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="questionsPane" style="margin-top: 1rem; width: 100%;">
+            Practice Questions &rarr;
+          </button>
+        </div>
+
+        <!-- Card 3: Flashcards -->
+        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔄</div>
+            <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.35rem;">Smart Flashcards</h3>
+            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">Interactive 3D flip cards to test recall of vital terminology and fundamental concepts.</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="flashcardsPane" style="margin-top: 1rem; width: 100%;">
+            Flip Flashcards &rarr;
+          </button>
+        </div>
+
+        <!-- Card 4: MCQ Quiz -->
+        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🎯</div>
+            <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.35rem;">Practice MCQ Quiz</h3>
+            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">5 multiple-choice questions with real-time feedback, detailed reasoning, and score tracking.</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="quizPane" style="margin-top: 1rem; width: 100%;">
+            Start Quiz &rarr;
+          </button>
+        </div>
+
+        <!-- Card 5: AI Assistant -->
+        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;">
+          <div>
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">💬</div>
+            <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.35rem;">AI Study Assistant</h3>
+            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">Ask doubts directly grounded in this document with "Explain Simply", "Give Examples", and "Exam Answer" modes.</p>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="chatPane" style="margin-top: 1rem; width: 100%;">
+            Chat with Material &rarr;
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       TAB 2: SUMMARY PANE
+       ========================================================================= -->
+  <div class="tab-pane" id="summaryPane">
+    <div class="workspace-actions-bar">
+      <div>
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary);">AI Comprehensive Summary</h2>
+        <p style="font-size: 0.875rem; color: var(--text-muted);">Overview, Key Concepts, Important Points, Exam Points, and Revision Notes</p>
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary btn-sm" id="copySummaryBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Copy All
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="regenSummaryBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          Regenerate
+        </button>
+        <a href="{{ url_for('export_pdf', content_type='summary', doc_id=document.id) }}" class="btn btn-primary btn-sm">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download PDF
+        </a>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="summaryLoadingWrapper" class="loading-state-box" style="display: none;">
+      <span class="spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
+      <p>Analyzing document with AI and generating structured study summary...</p>
+    </div>
+
+    <!-- Content Output -->
+    <div id="summaryContentWrapper"></div>
+  </div>
+
+  <!-- =========================================================================
+       TAB 3: IMPORTANT QUESTIONS PANE
+       ========================================================================= -->
+  <div class="tab-pane" id="questionsPane">
+    <div class="workspace-actions-bar">
+      <div>
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary);">Important Exam Questions</h2>
+        <p style="font-size: 0.875rem; color: var(--text-muted);">High-probability test questions with complete model answers & tips</p>
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary btn-sm" id="copyQuestionsBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Copy Questions
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="regenQuestionsBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          Regenerate
+        </button>
+        <a href="{{ url_for('export_pdf', content_type='questions', doc_id=document.id) }}" class="btn btn-primary btn-sm">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download PDF
+        </a>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="questionsLoadingWrapper" class="loading-state-box" style="display: none;">
+      <span class="spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
+      <p>Generating exam-focused questions and model answers...</p>
+    </div>
+
+    <!-- Questions Accordion Wrapper -->
+    <div id="questionsListWrapper"></div>
+  </div>
+
+  <!-- =========================================================================
+       TAB 4: FLASHCARDS PANE (INTERACTIVE 3D)
+       ========================================================================= -->
+  <div class="tab-pane" id="flashcardsPane">
+    <div class="workspace-actions-bar">
+      <div>
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary);">Smart Flashcards</h2>
+        <p style="font-size: 0.875rem; color: var(--text-muted);">Active recall revision. Click card or press Spacebar to flip.</p>
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary btn-sm" id="regenFlashcardsBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          Regenerate
+        </button>
+        <a href="{{ url_for('export_pdf', content_type='flashcards', doc_id=document.id) }}" class="btn btn-primary btn-sm">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download PDF
+        </a>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="flashcardsLoadingWrapper" class="loading-state-box" style="display: none;">
+      <span class="spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
+      <p>Creating high-yield active recall flashcards...</p>
+    </div>
+
+    <!-- Interactive 3D Card Stage -->
+    <div id="flashcardsStageWrapper" class="flashcards-container">
+      <div class="flashcard-stage">
+        <div class="flashcard-inner" id="flashcardInner">
+          <!-- Front Face -->
+          <div class="flashcard-face flashcard-front">
+            <div style="display: flex; justify-content: space-between; width: 100%;">
+              <span class="flashcard-tag tag-front">Concept / Question</span>
+              <span id="cardFrontHint" style="font-size: 0.8125rem; color: var(--text-muted);"></span>
+            </div>
+            <div class="flashcard-text" id="cardFrontText">Loading...</div>
+            <div class="flashcard-flip-prompt">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              Click card to reveal answer
+            </div>
+          </div>
+
+          <!-- Back Face -->
+          <div class="flashcard-face flashcard-back">
+            <div style="display: flex; justify-content: space-between; width: 100%;">
+              <span class="flashcard-tag tag-back">Answer / Explanation</span>
+              <span style="font-size: 0.8125rem; color: var(--text-muted);">Smart Study AI</span>
+            </div>
+            <div class="flashcard-text" id="cardBackText" style="font-size: 1.0625rem; font-weight: 500;">Loading...</div>
+            <div class="flashcard-flip-prompt">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path></svg>
+              Click card to flip back
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="flashcards-controls">
+        <button type="button" class="btn btn-secondary btn-sm" id="prevCardBtn">&larr; Previous</button>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span class="flashcard-counter" id="flashcardCounter">Card 1 of 5</span>
+          <button type="button" class="btn btn-outline btn-sm" id="flipCardBtn">Flip Card ↻</button>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" id="nextCardBtn">Next &rarr;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       TAB 5: MCQ QUIZ PANE
+       ========================================================================= -->
+  <div class="tab-pane" id="quizPane">
+    <div class="workspace-actions-bar">
+      <div>
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary);">Practice MCQ Quiz</h2>
+        <p style="font-size: 0.875rem; color: var(--text-muted);">5 targeted questions to test your conceptual mastery with instant answer verification</p>
+      </div>
+      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+        <button type="button" class="btn btn-secondary btn-sm" id="regenQuizBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+          Regenerate Quiz
+        </button>
+        <a href="{{ url_for('export_pdf', content_type='mcqs', doc_id=document.id) }}" class="btn btn-primary btn-sm">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download PDF
+        </a>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="quizLoadingWrapper" class="loading-state-box" style="display: none;">
+      <span class="spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
+      <p>Generating practice MCQ quiz from study material...</p>
+    </div>
+
+    <!-- Quiz Content Container -->
+    <div id="quizContentWrapper"></div>
+  </div>
+
+  <!-- =========================================================================
+       TAB 6: AI STUDY ASSISTANT (CHAT)
+       ========================================================================= -->
+  <div class="tab-pane" id="chatPane">
+    <div class="workspace-actions-bar">
+      <div>
+        <h2 style="font-size: 1.25rem; font-weight: 800; color: var(--text-primary);">AI Study Assistant</h2>
+        <p style="font-size: 0.875rem; color: var(--text-muted);">Grounded assistant answering questions directly from "{{ document.filename }}"</p>
+      </div>
+      <div>
+        <button type="button" class="btn btn-secondary btn-sm" id="clearChatBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path></svg>
+          Clear Chat
+        </button>
+      </div>
+    </div>
+
+    <div class="chat-workspace">
+      <!-- Mode Selection Header -->
+      <div class="chat-modes-header">
+        <span style="font-size: 0.8125rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Mode:</span>
+        <button type="button" class="chat-mode-pill active" data-mode="normal">💬 Normal Chat</button>
+        <button type="button" class="chat-mode-pill" data-mode="explain_simply">💡 Explain Simply</button>
+        <button type="button" class="chat-mode-pill" data-mode="summarize">📝 Summarize</button>
+        <button type="button" class="chat-mode-pill" data-mode="give_example">🔍 Give Example</button>
+        <button type="button" class="chat-mode-pill" data-mode="ask_questions">❓ Ask Me Questions</button>
+        <button type="button" class="chat-mode-pill" data-mode="exam_answer">🎯 Exam Answer</button>
+      </div>
+
+      <!-- Messages Stream -->
+      <div class="chat-messages-container" id="chatMessages">
+        <div class="chat-msg chat-msg-assistant">
+          <div class="msg-avatar msg-avatar-ai">🤖</div>
+          <div class="msg-bubble">
+            Hello! I am your <strong>Smart Study AI Companion</strong> for <em>{{ document.filename }}</em>.<br/><br/>
+            I have analyzed and indexed your material. You can ask me any question, request simple explanations, ask for examples, or have me test your knowledge!
+          </div>
+        </div>
+      </div>
+
+      <!-- Input Bar -->
+      <div class="chat-input-bar">
+        <input type="text" id="chatInput" class="chat-input" placeholder="Ask any question about this document..." autocomplete="off">
+        <button type="button" class="btn btn-primary" id="chatSendBtn">
+          <span>Send</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

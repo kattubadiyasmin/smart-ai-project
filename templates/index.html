@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Smart Study - AI Study Companion{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+  <div class="hero-badge">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+    AI-Powered College Learning Platform
+  </div>
+  <h1 class="hero-title">
+    Turn Your Study Materials Into <span class="gradient-text">Smarter Learning</span>
+  </h1>
+  <p class="hero-subtitle">
+    Upload your study PDFs and use AI to understand, practice, revise, and prepare better.
+  </p>
+  <div class="hero-actions">
+    <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg">Get Started Free</a>
+    <a href="{{ url_for('login') }}" class="btn btn-secondary btn-lg">Login to Account</a>
+  </div>
+
+  <!-- Visual Student Learning Card Preview -->
+  <div class="hero-preview">
+    <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-light); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <span style="font-size: 1.25rem;">📄</span>
+        <div style="text-align: left;">
+          <div style="font-weight: 700; color: var(--text-primary);">Computer_Networks_Chapter_4.pdf</div>
+          <div style="font-size: 0.8125rem; color: var(--text-muted);">Indexed 32 Pages &bull; Study Material Ready</div>
+        </div>
+      </div>
+      <span class="badge badge-success">AI Analyzed</span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; text-align: left;">
+      <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        <div style="font-size: 0.8125rem; font-weight: 700; color: var(--accent-primary);">1. AI SUMMARY</div>
+        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">5-tier overview, key concepts, and exam notes</div>
+      </div>
+      <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        <div style="font-size: 0.8125rem; font-weight: 700; color: #10B981;">2. FLASHCARDS</div>
+        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">Interactive 3D active recall flip cards</div>
+      </div>
+      <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        <div style="font-size: 0.8125rem; font-weight: 700; color: #F59E0B;">3. MCQ QUIZ</div>
+        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">5 exam-format questions with instant feedback</div>
+      </div>
+      <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-light);">
+        <div style="font-size: 0.8125rem; font-weight: 700; color: #3B82F6;">4. AI ASSISTANT</div>
+        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">Grounded natural language doubt clearing</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Features Section -->
+<section id="features" style="padding: 4rem 0;">
+  <div class="section-header">
+    <h2>Powerful Tools Built for Students</h2>
+    <p>Everything you need to master your syllabus in less time with higher retention.</p>
+  </div>
+
+  <div class="features-grid">
+    <!-- Feature 1 -->
+    <div class="feature-card">
+      <div class="feature-icon">📝</div>
+      <h3>1. AI Summary</h3>
+      <p>Instantly extracts the core theme, key concepts, critical formulas, and high-yield exam takeaways into structured, digestible cards.</p>
+    </div>
+
+    <!-- Feature 2 -->
+    <div class="feature-card">
+      <div class="feature-icon">❓</div>
+      <h3>2. Important Questions</h3>
+      <p>Generates high-probability exam questions with thorough professor-level model answers and key revision tips.</p>
+    </div>
+
+    <!-- Feature 3 -->
+    <div class="feature-card">
+      <div class="feature-icon">🔄</div>
+      <h3>3. Smart Flashcards</h3>
+      <p>Enhance active recall using interactive 3D flip flashcards designed to lock essential terms and concepts into long-term memory.</p>
+    </div>
+
+    <!-- Feature 4 -->
+    <div class="feature-card">
+      <div class="feature-icon">🎯</div>
+      <h3>4. Practice MCQs</h3>
+      <p>Test your conceptual understanding with 5 realistic multiple-choice questions, instant answer checks, explanations, and score tracking.</p>
+    </div>
+
+    <!-- Feature 5 -->
+    <div class="feature-card">
+      <div class="feature-icon">💬</div>
+      <h3>5. AI Study Assistant</h3>
+      <p>Chat naturally with your document. Ask the AI to "Explain Simply", "Give Examples", "Summarize", or create "Exam Answers".</p>
+    </div>
+
+    <!-- Feature 6 -->
+    <div class="feature-card">
+      <div class="feature-icon">📄</div>
+      <h3>6. PDF Export</h3>
+      <p>Download clean, publication-grade study sheets, flashcard collections, and quiz guides to study offline or print before exams.</p>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works Section -->
+<section id="how-it-works" style="padding: 4rem 0; background-color: #FFFFFF; border-radius: var(--radius-lg); margin-bottom: 4rem; border: 1px solid var(--border-light);">
+  <div class="section-header" style="padding: 0 1.5rem;">
+    <h2>How Smart Study Works</h2>
+    <p>A simple 5-step workflow engineered to maximize student productivity.</p>
+  </div>
+
+  <div class="how-it-works-grid" style="padding: 0 2rem;">
+    <div class="step-card">
+      <div class="step-number">1</div>
+      <h4>Upload</h4>
+      <p>Drop your lecture PDF, textbook chapter, or class handout.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">2</div>
+      <h4>Understand</h4>
+      <p>Read AI-generated summaries, key concepts, and high-yield notes.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">3</div>
+      <h4>Practice</h4>
+      <p>Solve targeted MCQ quizzes and check your grasp instantly.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">4</div>
+      <h4>Revise</h4>
+      <p>Flip through active-recall flashcards before tests and exams.</p>
+    </div>
+
+    <div class="step-card">
+      <div class="step-number">5</div>
+      <h4>Ask AI</h4>
+      <p>Ask doubts to the grounded document assistant in plain English.</p>
+    </div>
+  </div>
+
+  <div style="text-align: center; margin-top: 1rem;">
+    <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg">Start Studying Now &rarr;</a>
+  </div>
+</section>
+{% endblock %}

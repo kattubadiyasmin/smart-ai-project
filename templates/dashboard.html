@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Smart Study{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <h1>Welcome back, {{ current_user.name.split()[0] }}!</h1>
+  <p>Track your study materials, generate notes, practice quizzes, and revise with AI.</p>
+</div>
+
+<!-- 4 Real Statistic Cards -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-icon-indigo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+    </div>
+    <div>
+      <div class="stat-value">{{ stats.total_materials }}</div>
+      <div class="stat-label">Total Materials</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-icon-emerald">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+    </div>
+    <div>
+      <div class="stat-value">{{ stats.summaries_created }}</div>
+      <div class="stat-label">Summaries Created</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-icon-amber">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+    </div>
+    <div>
+      <div class="stat-value">{{ stats.questions_generated }}</div>
+      <div class="stat-label">Questions & Cards</div>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon-wrapper stat-icon-blue">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+    </div>
+    <div>
+      <div class="stat-value">{{ stats.quiz_attempts }}</div>
+      <div class="stat-label">Quiz Attempts</div>
+    </div>
+  </div>
+</div>
+
+<!-- Visual Learning Flow -->
+<div class="learning-flow-card">
+  <div class="learning-flow-title">Recommended Study Flow</div>
+  <div class="flow-steps">
+    <div class="flow-step-item">
+      <span>1. 📤 Upload PDF</span>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step-item">
+      <span>2. 📖 Understand (Summary)</span>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step-item">
+      <span>3. 🎯 Practice (MCQs & Qs)</span>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step-item">
+      <span>4. 🔄 Revise (Flashcards)</span>
+    </div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step-item">
+      <span>5. 💬 Ask AI Assistant</span>
+    </div>
+  </div>
+</div>
+
+<!-- Upload New Study Material Area -->
+<div class="card" style="margin-bottom: 2rem;">
+  <div class="card-header">
+    <div>
+      <h2 class="card-title">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        Upload New Study Material
+      </h2>
+      <div class="card-subtitle">Supported format: PDF &bull; Maximum file size: 16 MB</div>
+    </div>
+  </div>
+
+  <div class="upload-dropzone" id="dropzone">
+    <input type="file" id="pdfFileInput" accept=".pdf" style="display: none;">
+    <div id="dropzoneContent">
+      <div class="dropzone-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+      </div>
+      <div class="dropzone-title">Drag & drop your study PDF here</div>
+      <div class="dropzone-desc">or click anywhere in this area to select a PDF file from your device</div>
+      <button type="button" class="btn btn-outline btn-sm">Select PDF File</button>
+    </div>
+
+    <!-- Upload Progress & Processing Indicator -->
+    <div class="upload-progress-container" id="uploadProgress">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 0.75rem;">
+        <span class="spinner" style="width: 18px; height: 18px; border-width: 2px;"></span>
+        <span id="uploadStatusText" style="font-size: 0.9375rem; font-weight: 600; color: var(--text-primary);">Processing PDF...</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressBarFill"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Study Materials -->
+<div class="card">
+  <div class="card-header">
+    <h2 class="card-title">Recent Study Materials</h2>
+    {% if recent_docs %}
+      <a href="{{ url_for('materials') }}" class="btn btn-outline btn-sm">View All Materials &rarr;</a>
+    {% endif %}
+  </div>
+
+  {% if recent_docs %}
+    <div class="materials-grid">
+      {% for doc in recent_docs %}
+        <div class="doc-card">
+          <div>
+            <div class="doc-header">
+              <div class="doc-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              </div>
+              <div>
+                <h3 class="doc-title">{{ doc.filename }}</h3>
+                <div class="doc-meta">
+                  <span>{{ doc.page_count }} pages</span>
+                  <span>&bull;</span>
+                  <span>{{ (doc.file_size / 1024) | round(1) }} KB</span>
+                  <span>&bull;</span>
+                  <span>{{ doc.uploaded_at.split()[0] if doc.uploaded_at else 'Recent' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="doc-actions">
+            <a href="{{ url_for('study_workspace', doc_id=doc.id) }}" class="btn btn-primary btn-sm">Open Study Workspace &rarr;</a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
+      <div style="font-size: 2.5rem; margin-bottom: 0.75rem;">📚</div>
+      <h3 style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem;">No study materials yet</h3>
+      <p style="font-size: 0.9375rem; max-width: 420px; margin: 0 auto 1.25rem;">Upload your lecture slides, class notes, or chapters above to create your first AI study guide.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
