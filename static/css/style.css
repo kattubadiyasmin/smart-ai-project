@@ -1646,3 +1646,215 @@ a:hover {
     height: 380px;
   }
 }
+
+/* ==========================================================================
+   ENHANCED MODERN EDTECH UI & ESSENTIAL TOOLS
+   ========================================================================== */
+
+/* 1. Pomodoro Focus Timer Widget */
+.pomodoro-widget {
+  background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+  color: #FFFFFF;
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 10px 25px -5px rgba(49, 46, 129, 0.3);
+  animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pomodoro-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.pomodoro-modes {
+  display: flex;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.25rem;
+  border-radius: var(--radius-full);
+}
+
+.pomodoro-mode-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 0.35rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pomodoro-mode-btn:hover {
+  color: #FFFFFF;
+}
+
+.pomodoro-mode-btn.active {
+  background: #FFFFFF;
+  color: #1E1B4B;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.pomodoro-display {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.pomo-digits {
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+}
+
+.pomo-streak-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: #FCD34D;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pomodoro-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* 2. Overview Module Cards */
+.module-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.module-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent-border);
+  box-shadow: 0 12px 24px -4px rgba(79, 70, 229, 0.12);
+}
+
+.module-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  margin-bottom: 0.85rem;
+}
+
+/* 3. Flashcards Mastery Controls */
+.flashcard-mastery-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  justify-content: center;
+}
+
+.btn-success {
+  background-color: var(--success);
+  color: #FFFFFF;
+  border: none;
+}
+
+.btn-success:hover {
+  background-color: #059669;
+}
+
+.btn-warning {
+  background-color: var(--warning);
+  color: #FFFFFF;
+  border: none;
+}
+
+.btn-warning:hover {
+  background-color: #D97706;
+}
+
+/* 4. Chat Suggestion Chips */
+.chat-suggestions-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-light);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.chat-chip-btn {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.chat-chip-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: var(--accent-subtle);
+  transform: translateY(-1px);
+}
+
+/* 5. Retry / Error Box with Action */
+.retry-error-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+  margin: 1.5rem 0;
+}
+
+.retry-error-card h3 {
+  font-size: 1.125rem;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.retry-error-card p {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  margin-bottom: 1.25rem;
+}
+
+/* 6. Celebration Visual for High Score */
+.celebration-box {
+  background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%);
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  animation: popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+

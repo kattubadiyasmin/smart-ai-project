@@ -21,21 +21,27 @@ Smart Study is a complete, full-stack, AI-powered study platform tailored for co
    - Supplies comprehensive answers and professor tips / conceptual explanations.
    - Accordion review interface with copy and export features.
 
-3. **Smart Flashcards (Interactive 3D Active Recall)**
+3. **Smart Flashcards (Interactive 3D Active Recall & Mastery Tracking)**
    - 5 high-yield study flashcards with realistic 3D flipping animation.
    - Front: Concept / Question / Category hint.
-   - Back: Model Answer / Explanation.
-   - Previous, Next, Flip buttons, and keyboard controls (Arrow Left/Right to navigate, Spacebar to flip).
+   - Back: Model Answer / Explanation with mastery tracking (`✅ Got It! Mastered` vs `⚠️ Need Practice`).
+   - Live Mastery Progress Bar (e.g. `3 of 5 Mastered (60%)`) and progress reset option.
+   - Keyboard shortcuts: `Space` to flip, `Arrow Left/Right` to navigate, `1` for Need Practice, `2` for Mastered.
 
-4. **Practice MCQ Quiz**
+4. **Practice MCQ Quiz with Performance Badging**
    - 5 multiple-choice questions with 4 distinct options.
    - Instant visual answer validation: green badges for correct options, red for mistakes.
    - Explanations for every question.
-   - Dynamic score tracking (X / 5) with performance feedback and persistent saving to SQLite.
+   - Dynamic score tracking (X / 5) with celebratory milestones (`🎉 Perfect Score!` / `🌟 Excellent Job!`).
+   - Retake quiz and instant PDF download buttons.
 
-5. **AI Study Assistant (Grounded Document Chat)**
-   - Context-aware chatbot powered by Groq API.
-   - Retrieves relevant document text chunks using term-frequency and phrase-matching ranking.
+5. **AI Study Assistant with Quick Suggestion Chips**
+   - Context-aware chatbot powered by Groq API with instant local fallback.
+   - Quick clickable suggestion chips:
+     - `💡 Explain Main Theme`
+     - `🎯 Top 3 Exam Points`
+     - `✨ Real-World Example`
+     - `📝 3-Bullet Summary`
    - Clearly flags when a query cannot be answered from the document:
      *"I couldn't find this information in your uploaded material. I can still explain the general concept if you'd like."*
    - Dedicated learning modes:
@@ -47,19 +53,32 @@ Smart Study is a complete, full-stack, AI-powered study platform tailored for co
      - 🎯 **Exam Answer** (Structured academic format)
    - Persistent chat history in SQLite with clear chat capability.
 
-6. **Publication-Grade PDF Export**
+6. **Interactive Pomodoro Focus Study Timer**
+   - Integrated study timer with Focus (25m), Short Break (5m), and Long Break (15m) intervals.
+   - Live countdown display, session streak tracker (`🔥 Session 1`), and synthetic Web Audio completion chime.
+
+7. **Document Search & Quick Text Explorer**
+   - Real-time keyword filter across extracted lecture notes with instant highlighting `<mark>`.
+   - Collapsible source note viewer for reviewing raw materials side-by-side with AI summaries.
+
+8. **Resilient Dual-Layer AI Generation Engine**
+   - High-speed Groq LLM inference (`qwen/qwen3.8-27b`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`).
+   - Built-in extractive NLP fallback engine ensuring 100% uninterrupted study flow even during rate limits or offline scenarios.
+
+9. **Publication-Grade PDF Export**
    - Built with ReportLab.
    - Export individual summaries, question sheets, flashcard collections, quizzes, or a combined master study guide.
 
-7. **User Isolation & Authentication**
-   - Werkzeug secure password hashing (PBKDF2/SHA256).
-   - Session authentication with protected routes.
-   - Strict user isolation: users can only view, study, and delete their own files.
+10. **User Isolation & Authentication**
+    - Werkzeug secure password hashing (PBKDF2/SHA256).
+    - Session authentication with protected routes.
+    - Strict user isolation: users can only view, study, and delete their own files.
 
-8. **Dashboard & History Tracking**
-   - Real statistics (Total Materials, Summaries Created, Questions Generated, Quiz Attempts) with zero fake numbers.
-   - Visual learning flow roadmap.
-   - Full activity timeline with scores, timestamps, and direct study workspace links.
+11. **Dashboard & History Tracking**
+    - Real statistics (Total Materials, Summaries Created, Questions Generated, Quiz Attempts) with zero fake numbers.
+    - Visual learning flow roadmap.
+    - Full activity timeline with scores, timestamps, and direct study workspace links.
+
 
 ---
 

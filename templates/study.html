@@ -7,14 +7,17 @@
   <!-- Workspace Header Bar -->
   <div class="workspace-header">
     <div class="workspace-title-box">
-      <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-        <span style="font-size: 1.25rem;">📄</span>
+      <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
+        <span style="font-size: 1.5rem; filter: drop-shadow(0 2px 4px rgba(79, 70, 229, 0.2));">📄</span>
         <h1>{{ document.filename }}</h1>
+        <span class="badge badge-success" style="font-size: 0.75rem; padding: 0.25rem 0.6rem;">⚡ AI Indexed</span>
       </div>
       <div class="workspace-meta">
         <span><strong>Pages:</strong> {{ document.page_count }}</span>
         <span>&bull;</span>
         <span><strong>Words:</strong> ~{{ "{:,}".format(word_count) }}</span>
+        <span>&bull;</span>
+        <span><strong>Est. Read:</strong> ~{{ ((word_count / 200) | round) | int if (word_count / 200) > 1 else 1 }} min</span>
         <span>&bull;</span>
         <span><strong>Size:</strong> {{ (document.file_size / 1024) | round(1) }} KB</span>
         <span>&bull;</span>
@@ -22,11 +25,39 @@
       </div>
     </div>
 
-    <div>
-      <a href="{{ url_for('export_pdf', content_type='combined', doc_id=document.id) }}" class="btn btn-outline btn-sm">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-        Download All Notes PDF
+    <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+      <button type="button" class="btn btn-secondary btn-sm" id="togglePomodoroBtn" title="Toggle Pomodoro Study Timer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        <span id="pomodoroHeaderBadge">Focus Timer</span>
+      </button>
+      <a href="{{ url_for('export_pdf', content_type='combined', doc_id=document.id) }}" class="btn btn-primary btn-sm" style="box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Export Complete Study Guide PDF
       </a>
+    </div>
+  </div>
+
+  <!-- Pomodoro Focus Timer Bar (Collapsible / Active) -->
+  <div id="pomodoroWidget" class="pomodoro-widget" style="display: none;">
+    <div class="pomodoro-inner">
+      <div class="pomodoro-modes">
+        <button type="button" class="pomodoro-mode-btn active" data-pomo-mode="focus">🎯 Focus (25m)</button>
+        <button type="button" class="pomodoro-mode-btn" data-pomo-mode="shortBreak">☕ Short Break (5m)</button>
+        <button type="button" class="pomodoro-mode-btn" data-pomo-mode="longBreak">🌴 Long Break (15m)</button>
+      </div>
+
+      <div class="pomodoro-display">
+        <span id="pomoTimeDisplay" class="pomo-digits">25:00</span>
+        <span id="pomoSessionStreak" class="pomo-streak-badge">🔥 Session 1</span>
+      </div>
+
+      <div class="pomodoro-actions">
+        <button type="button" class="btn btn-primary btn-sm" id="pomoStartBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          <span id="pomoStartBtnText">Start</span>
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="pomoResetBtn">Reset</button>
+      </div>
     </div>
   </div>
 
@@ -62,72 +93,103 @@
        TAB 1: OVERVIEW PANE
        ========================================================================= -->
   <div class="tab-pane active" id="overviewPane">
+    <!-- Quick Search & Document Inspector Bar -->
+    <div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.95)); border: 1px solid var(--border-light);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+        <div>
+          <h2 class="card-title" style="font-size: 1.25rem;">🔍 Document Quick Search & Reader</h2>
+          <div class="card-subtitle">Instantly find definitions, formulas, or keywords in your source material</div>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" id="toggleRawTextBtn">
+          <span>📖 View Source Notes</span>
+        </button>
+      </div>
+
+      <div style="position: relative; width: 100%;">
+        <input type="text" id="docSearchInput" class="form-control" placeholder="Search keywords in this document (e.g. definition, theorem, formula, workflow)..." style="padding-left: 2.5rem; font-size: 0.9375rem; border-radius: var(--radius-md);">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </div>
+
+      <!-- Search Results Area -->
+      <div id="docSearchResults" style="display: none; margin-top: 1rem; max-height: 220px; overflow-y: auto; background: var(--bg-secondary); border-radius: var(--radius-md); padding: 0.75rem; border: 1px solid var(--border-light);"></div>
+
+      <!-- Collapsible Raw Document Viewer -->
+      <div id="rawDocViewer" style="display: none; margin-top: 1.25rem; border-top: 1px solid var(--border-light); padding-top: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <strong style="font-size: 0.875rem; color: var(--text-secondary);">Source Document Extracted Text:</strong>
+          <span style="font-size: 0.8125rem; color: var(--text-muted);">{{ word_count }} words total</span>
+        </div>
+        <div style="max-height: 280px; overflow-y: auto; background: var(--bg-tertiary); padding: 1rem; border-radius: var(--radius-md); font-family: monospace; font-size: 0.85rem; line-height: 1.6; white-space: pre-wrap; color: var(--text-primary); border: 1px solid var(--border-light);">{{ document.extracted_text }}</div>
+      </div>
+    </div>
+
+    <!-- Learning Modules Grid -->
     <div class="card" style="margin-bottom: 1.5rem;">
       <div class="card-header">
         <div>
           <h2 class="card-title">Study Plan & Learning Modules</h2>
           <div class="card-subtitle">Choose a module below to start learning and preparing</div>
         </div>
-        <span class="badge badge-success">Document Indexed</span>
+        <span class="badge badge-success">✨ Ready for Study</span>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.25rem; margin-top: 0.5rem;">
         <!-- Card 1: Summary -->
-        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="module-card">
           <div>
-            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📝</div>
+            <div class="module-icon-box" style="background: rgba(79, 70, 229, 0.1); color: #4F46E5;">📝</div>
             <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.35rem;">AI Summary</h3>
             <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">Structured 5-section breakdown including key concepts, important points, and exam revision notes.</p>
           </div>
-          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="summaryPane" style="margin-top: 1rem; width: 100%;">
+          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="summaryPane" style="margin-top: 1.25rem; width: 100%;">
             View Summary &rarr;
           </button>
         </div>
 
         <!-- Card 2: Questions -->
-        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="module-card">
           <div>
-            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">❓</div>
+            <div class="module-icon-box" style="background: rgba(16, 185, 129, 0.1); color: #10B981;">❓</div>
             <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.35rem;">Important Questions</h3>
-            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">5 critical exam questions with complete model answers and conceptual explanations.</p>
+            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">5 critical exam questions with complete model answers, reasoning, and conceptual tips.</p>
           </div>
-          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="questionsPane" style="margin-top: 1rem; width: 100%;">
+          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="questionsPane" style="margin-top: 1.25rem; width: 100%;">
             Practice Questions &rarr;
           </button>
         </div>
 
         <!-- Card 3: Flashcards -->
-        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="module-card">
           <div>
-            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔄</div>
+            <div class="module-icon-box" style="background: rgba(245, 158, 11, 0.1); color: #F59E0B;">🔄</div>
             <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.35rem;">Smart Flashcards</h3>
-            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">Interactive 3D flip cards to test recall of vital terminology and fundamental concepts.</p>
+            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">Interactive 3D flip cards with active recall tracking, hints, and mastery progress.</p>
           </div>
-          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="flashcardsPane" style="margin-top: 1rem; width: 100%;">
+          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="flashcardsPane" style="margin-top: 1.25rem; width: 100%;">
             Flip Flashcards &rarr;
           </button>
         </div>
 
         <!-- Card 4: MCQ Quiz -->
-        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="module-card">
           <div>
-            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🎯</div>
+            <div class="module-icon-box" style="background: rgba(59, 130, 246, 0.1); color: #3B82F6;">🎯</div>
             <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.35rem;">Practice MCQ Quiz</h3>
-            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">5 multiple-choice questions with real-time feedback, detailed reasoning, and score tracking.</p>
+            <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">5 multiple-choice questions with instant scoring, celebratory milestones, and detailed answer keys.</p>
           </div>
-          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="quizPane" style="margin-top: 1rem; width: 100%;">
+          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="quizPane" style="margin-top: 1.25rem; width: 100%;">
             Start Quiz &rarr;
           </button>
         </div>
 
         <!-- Card 5: AI Assistant -->
-        <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="module-card">
           <div>
-            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">💬</div>
+            <div class="module-icon-box" style="background: rgba(139, 92, 246, 0.1); color: #8B5CF6;">💬</div>
             <h3 style="font-size: 1.125rem; font-weight: 700; margin-bottom: 0.35rem;">AI Study Assistant</h3>
             <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.5;">Ask doubts directly grounded in this document with "Explain Simply", "Give Examples", and "Exam Answer" modes.</p>
           </div>
-          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="chatPane" style="margin-top: 1rem; width: 100%;">
+          <button type="button" class="btn btn-primary btn-sm quick-jump-tab" data-target-tab="chatPane" style="margin-top: 1.25rem; width: 100%;">
             Chat with Material &rarr;
           </button>
         </div>
@@ -162,8 +224,9 @@
 
     <!-- Loading State -->
     <div id="summaryLoadingWrapper" class="loading-state-box" style="display: none;">
-      <span class="spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
-      <p>Analyzing document with AI and generating structured study summary...</p>
+      <span class="spinner" style="width: 34px; height: 34px; border-width: 3px;"></span>
+      <p style="font-weight: 600; color: var(--text-primary);">Analyzing document with AI and generating structured study summary...</p>
+      <span style="font-size: 0.8125rem; color: var(--text-muted);">Extracting core concepts, exam-focused points, and revision notes</span>
     </div>
 
     <!-- Content Output -->
@@ -197,8 +260,8 @@
 
     <!-- Loading State -->
     <div id="questionsLoadingWrapper" class="loading-state-box" style="display: none;">
-      <span class="spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
-      <p>Generating exam-focused questions and model answers...</p>
+      <span class="spinner" style="width: 34px; height: 34px; border-width: 3px;"></span>
+      <p style="font-weight: 600; color: var(--text-primary);">Generating exam-focused questions and model answers...</p>
     </div>
 
     <!-- Questions Accordion Wrapper -->
@@ -206,7 +269,7 @@
   </div>
 
   <!-- =========================================================================
-       TAB 4: FLASHCARDS PANE (INTERACTIVE 3D)
+       TAB 4: FLASHCARDS PANE (INTERACTIVE 3D & MASTERY TRACKING)
        ========================================================================= -->
   <div class="tab-pane" id="flashcardsPane">
     <div class="workspace-actions-bar">
@@ -228,8 +291,21 @@
 
     <!-- Loading State -->
     <div id="flashcardsLoadingWrapper" class="loading-state-box" style="display: none;">
-      <span class="spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
-      <p>Creating high-yield active recall flashcards...</p>
+      <span class="spinner" style="width: 34px; height: 34px; border-width: 3px;"></span>
+      <p style="font-weight: 600; color: var(--text-primary);">Creating high-yield active recall flashcards...</p>
+    </div>
+
+    <!-- Mastery Progress Banner -->
+    <div id="flashcardMasteryBar" class="card" style="margin-bottom: 1.25rem; padding: 1rem 1.25rem; background: var(--bg-primary); border: 1px solid var(--border-light);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.875rem;">
+        <span style="font-weight: 600; color: var(--text-primary);">
+          🎯 Mastery Progress: <span id="masteryCountText" style="color: var(--accent-primary);">0 of 5 Mastered</span>
+        </span>
+        <button type="button" class="btn btn-link btn-sm" id="resetMasteryBtn" style="font-size: 0.8125rem; color: var(--text-muted); padding: 0;">Reset Progress</button>
+      </div>
+      <div class="progress-bar-bg" style="height: 8px;">
+        <div id="masteryProgressFill" class="progress-bar-fill" style="width: 0%; background: linear-gradient(90deg, #4F46E5, #10B981);"></div>
+      </div>
     </div>
 
     <!-- Interactive 3D Card Stage -->
@@ -245,7 +321,7 @@
             <div class="flashcard-text" id="cardFrontText">Loading...</div>
             <div class="flashcard-flip-prompt">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-              Click card to reveal answer
+              Click card or press Space to reveal answer
             </div>
           </div>
 
@@ -256,9 +332,14 @@
               <span style="font-size: 0.8125rem; color: var(--text-muted);">Smart Study AI</span>
             </div>
             <div class="flashcard-text" id="cardBackText" style="font-size: 1.0625rem; font-weight: 500;">Loading...</div>
-            <div class="flashcard-flip-prompt">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"></path></svg>
-              Click card to flip back
+            
+            <div class="flashcard-mastery-actions">
+              <button type="button" class="btn btn-warning btn-sm" id="markNeedsReviewBtn" title="Press 1">
+                ⚠️ Need Practice
+              </button>
+              <button type="button" class="btn btn-success btn-sm" id="markMasteredBtn" title="Press 2">
+                ✅ Got It! Mastered
+              </button>
             </div>
           </div>
         </div>
@@ -272,6 +353,11 @@
           <button type="button" class="btn btn-outline btn-sm" id="flipCardBtn">Flip Card ↻</button>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" id="nextCardBtn">Next &rarr;</button>
+      </div>
+
+      <!-- Keyboard Shortcuts Hint -->
+      <div style="text-align: center; margin-top: 1rem; font-size: 0.8125rem; color: var(--text-muted);">
+        💡 Shortcuts: <kbd>Space</kbd> Flip &bull; <kbd>&larr;</kbd> Previous &bull; <kbd>&rarr;</kbd> Next &bull; <kbd>1</kbd> Practice &bull; <kbd>2</kbd> Mastered
       </div>
     </div>
   </div>
@@ -299,8 +385,8 @@
 
     <!-- Loading State -->
     <div id="quizLoadingWrapper" class="loading-state-box" style="display: none;">
-      <span class="spinner" style="width: 32px; height: 32px; border-width: 3px;"></span>
-      <p>Generating practice MCQ quiz from study material...</p>
+      <span class="spinner" style="width: 34px; height: 34px; border-width: 3px;"></span>
+      <p style="font-weight: 600; color: var(--text-primary);">Generating practice MCQ quiz from study material...</p>
     </div>
 
     <!-- Quiz Content Container -->
@@ -345,6 +431,15 @@
             I have analyzed and indexed your material. You can ask me any question, request simple explanations, ask for examples, or have me test your knowledge!
           </div>
         </div>
+      </div>
+
+      <!-- Quick Suggestion Chips Bar -->
+      <div class="chat-suggestions-bar">
+        <span style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-right: 0.25rem;">Suggested:</span>
+        <button type="button" class="chat-chip-btn" data-prompt="What is the main theme of this document? Explain simply." data-mode="explain_simply">💡 Explain Main Theme</button>
+        <button type="button" class="chat-chip-btn" data-prompt="What are the top 3 most important points I must remember for exams?" data-mode="exam_answer">🎯 Top 3 Exam Points</button>
+        <button type="button" class="chat-chip-btn" data-prompt="Give me an intuitive real-world example explaining this topic." data-mode="give_example">✨ Real-World Example</button>
+        <button type="button" class="chat-chip-btn" data-prompt="Summarize this entire material into 3 concise bullet points." data-mode="summarize">📝 3-Bullet Summary</button>
       </div>
 
       <!-- Input Bar -->

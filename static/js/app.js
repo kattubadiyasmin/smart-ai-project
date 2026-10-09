@@ -224,6 +224,10 @@ function initStudyWorkspace() {
   const docId = workspaceEl.dataset.docId;
   if (!docId) return;
 
+  // Initialize Essential Student Tools
+  initPomodoroTimer();
+  initDocumentSearch();
+
   // Tabs Switching
   const tabs = document.querySelectorAll(".workspace-tab");
   const panes = document.querySelectorAll(".tab-pane");
@@ -306,6 +310,187 @@ function setupCopyButton(btnId, getTextFn) {
 }
 
 // -----------------------------------------------------------------------------
+// ESSENTIAL TOOL 1: POMODORO FOCUS TIMER
+// -----------------------------------------------------------------------------
+function initPomodoroTimer() {
+  const toggleBtn = document.getElementById("togglePomodoroBtn");
+  const widget = document.getElementById("pomodoroWidget");
+  const display = document.getElementById("pomoTimeDisplay");
+  const startBtn = document.getElementById("pomoStartBtn");
+  const startText = document.getElementById("pomoStartBtnText");
+  const resetBtn = document.getElementById("pomoResetBtn");
+  const streakBadge = document.getElementById("pomoSessionStreak");
+  const headerBadge = document.getElementById("pomodoroHeaderBadge");
+
+  if (!toggleBtn || !widget || !display) return;
+
+  const modeDurations = {
+    focus: 25 * 60,
+    shortBreak: 5 * 60,
+    longBreak: 15 * 60,
+  };
+
+  let currentMode = "focus";
+  let timeLeft = modeDurations[currentMode];
+  let timerInterval = null;
+  let isRunning = false;
+  let sessionsCompleted = 0;
+
+  toggleBtn.onclick = () => {
+    const isHidden = widget.style.display === "none";
+    widget.style.display = isHidden ? "block" : "none";
+  };
+
+  document.querySelectorAll(".pomodoro-mode-btn").forEach((btn) => {
+    btn.onclick = () => {
+      document.querySelectorAll(".pomodoro-mode-btn").forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentMode = btn.dataset.pomoMode;
+      resetTimer();
+    };
+  });
+
+  function updateDisplay() {
+    const mins = Math.floor(timeLeft / 60);
+    const secs = timeLeft % 60;
+    const timeStr = `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    if (display) display.textContent = timeStr;
+    if (headerBadge) {
+      headerBadge.textContent = isRunning ? `⏱️ ${timeStr}` : "Focus Timer";
+    }
+  }
+
+  function playChime() {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.85);
+    } catch (e) {
+      // Audio fallback silent
+    }
+  }
+
+  function startTimer() {
+    if (isRunning) return;
+    isRunning = true;
+    if (startText) startText.textContent = "Pause";
+    timerInterval = setInterval(() => {
+      if (timeLeft > 0) {
+        timeLeft--;
+        updateDisplay();
+      } else {
+        clearInterval(timerInterval);
+        isRunning = false;
+        playChime();
+        if (currentMode === "focus") {
+          sessionsCompleted++;
+          if (streakBadge) streakBadge.textContent = `🔥 Session ${sessionsCompleted + 1}`;
+          alert("🎉 Focus session completed! Time to take a short break.");
+        } else {
+          alert("☕ Break finished! Ready to focus again?");
+        }
+        resetTimer();
+      }
+    }, 1000);
+  }
+
+  function pauseTimer() {
+    if (!isRunning) return;
+    clearInterval(timerInterval);
+    isRunning = false;
+    if (startText) startText.textContent = "Resume";
+  }
+
+  function resetTimer() {
+    clearInterval(timerInterval);
+    isRunning = false;
+    timeLeft = modeDurations[currentMode];
+    if (startText) startText.textContent = "Start";
+    updateDisplay();
+  }
+
+  if (startBtn) {
+    startBtn.onclick = () => {
+      if (isRunning) pauseTimer();
+      else startTimer();
+    };
+  }
+
+  if (resetBtn) {
+    resetBtn.onclick = resetTimer;
+  }
+
+  updateDisplay();
+}
+
+// -----------------------------------------------------------------------------
+// ESSENTIAL TOOL 2: DOCUMENT SEARCH & READER
+// -----------------------------------------------------------------------------
+function initDocumentSearch() {
+  const searchInput = document.getElementById("docSearchInput");
+  const resultsDiv = document.getElementById("docSearchResults");
+  const toggleRawBtn = document.getElementById("toggleRawTextBtn");
+  const rawViewer = document.getElementById("rawDocViewer");
+
+  if (toggleRawBtn && rawViewer) {
+    toggleRawBtn.onclick = () => {
+      const isHidden = rawViewer.style.display === "none";
+      rawViewer.style.display = isHidden ? "block" : "none";
+      toggleRawBtn.textContent = isHidden ? "📖 Hide Source Notes" : "📖 View Source Notes";
+    };
+  }
+
+  if (!searchInput || !resultsDiv) return;
+
+  const rawText = rawViewer ? rawViewer.innerText : "";
+  const sentences = rawText
+    .split(/(?<=[.!?])\s+|\n{2,}/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 25);
+
+  searchInput.addEventListener("input", () => {
+    const query = searchInput.value.trim().toLowerCase();
+    if (query.length < 2) {
+      resultsDiv.style.display = "none";
+      resultsDiv.innerHTML = "";
+      return;
+    }
+
+    const matches = sentences.filter((s) => s.toLowerCase().includes(query)).slice(0, 6);
+
+    if (matches.length === 0) {
+      resultsDiv.style.display = "block";
+      resultsDiv.innerHTML = `<p style="font-size: 0.8125rem; color: var(--text-muted); margin: 0;">No matching notes found for "${escapeHtml(query)}".</p>`;
+      return;
+    }
+
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+    let html = `<div style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Found ${matches.length} snippets:</div>`;
+
+    matches.forEach((sentence) => {
+      const highlighted = escapeHtml(sentence).replace(regex, `<mark style="background: #FEF08A; padding: 1px 3px; border-radius: 2px;">$1</mark>`);
+      html += `
+        <div style="padding: 0.5rem 0.65rem; margin-bottom: 0.35rem; background: #FFFFFF; border-radius: var(--radius-sm); font-size: 0.85rem; border: 1px solid var(--border-light); line-height: 1.5;">
+          ${highlighted}
+        </div>
+      `;
+    });
+
+    resultsDiv.style.display = "block";
+    resultsDiv.innerHTML = html;
+  });
+}
+
+// -----------------------------------------------------------------------------
 // SUMMARY MODULE
 // -----------------------------------------------------------------------------
 let summaryLoaded = false;
@@ -330,7 +515,13 @@ async function loadSummary(docId, forceRegen = false) {
     summaryLoaded = true;
   } catch (err) {
     if (contentDiv) {
-      contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
+      contentDiv.innerHTML = `
+        <div class="retry-error-card">
+          <h3>⚠️ Notice on AI Generation</h3>
+          <p>${escapeHtml(err.message)}</p>
+          <button class="btn btn-primary btn-sm" onclick="loadSummary(${docId}, true)">🔄 Try Again</button>
+        </div>
+      `;
       contentDiv.style.display = "block";
     }
   } finally {
@@ -484,7 +675,13 @@ async function loadQuestions(docId, forceRegen = false) {
     questionsLoaded = true;
   } catch (err) {
     if (contentDiv) {
-      contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
+      contentDiv.innerHTML = `
+        <div class="retry-error-card">
+          <h3>⚠️ Notice on AI Generation</h3>
+          <p>${escapeHtml(err.message)}</p>
+          <button class="btn btn-primary btn-sm" onclick="loadQuestions(${docId}, true)">🔄 Try Again</button>
+        </div>
+      `;
       contentDiv.style.display = "block";
     }
   } finally {
@@ -499,7 +696,7 @@ function renderQuestionsUI(questions) {
   if (!wrapper) return;
 
   if (!questions || questions.length === 0) {
-    wrapper.innerHTML = `<p class="form-hint">No questions generated yet.</p>`;
+    wrapper.innerHTML = `<p class="form-hint">No questions generated.</p>`;
     return;
   }
 
@@ -507,16 +704,19 @@ function renderQuestionsUI(questions) {
   questions.forEach((q, idx) => {
     const qNum = idx + 1;
     html += `
-      <div class="question-accordion-card">
-        <div class="question-accordion-header" onclick="toggleQuestion(${qNum})">
-          <div class="question-title-text">
-            <span class="question-badge">Q${qNum}</span>
-            <span>${escapeHtml(q.question)}</span>
+      <div class="question-card" id="q-card-${idx}">
+        <div class="question-header" onclick="toggleQuestion(${idx})">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <span class="badge badge-primary">Q${qNum}</span>
+            <span style="font-weight: 700; color: var(--text-primary); font-size: 1rem;">${escapeHtml(q.question)}</span>
           </div>
-          <svg id="q-arrow-${qNum}" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s;"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <svg class="question-toggle-arrow" id="q-arrow-${idx}" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
         </div>
-        <div id="q-body-${qNum}" class="question-accordion-body" style="display: ${idx === 0 ? "block" : "none"};">
-          <div class="answer-callout">
+
+        <div class="question-body" id="q-body-${idx}">
+          <div style="margin-bottom: 0.75rem;">
             <strong style="color: var(--text-primary); display: block; margin-bottom: 0.25rem;">Answer:</strong>
             <div style="color: var(--text-secondary); line-height: 1.6;">${escapeHtml(q.answer)}</div>
           </div>
@@ -552,11 +752,12 @@ window.toggleQuestion = function (idx) {
 };
 
 // -----------------------------------------------------------------------------
-// FLASHCARDS MODULE (3D INTERACTIVE FLIP)
+// FLASHCARDS MODULE (3D INTERACTIVE FLIP & MASTERY TRACKING)
 // -----------------------------------------------------------------------------
 let flashcardsLoaded = false;
 let currentFlashcards = [];
 let currentCardIndex = 0;
+let masteredCards = new Set();
 
 async function loadFlashcards(docId, forceRegen = false) {
   if (flashcardsLoaded && !forceRegen) return;
@@ -577,11 +778,19 @@ async function loadFlashcards(docId, forceRegen = false) {
 
     currentFlashcards = res.data || [];
     currentCardIndex = 0;
+    masteredCards.clear();
     initFlashcardsUI();
+    updateMasteryUI();
     flashcardsLoaded = true;
   } catch (err) {
     if (contentDiv) {
-      contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
+      contentDiv.innerHTML = `
+        <div class="retry-error-card">
+          <h3>⚠️ Notice on AI Generation</h3>
+          <p>${escapeHtml(err.message)}</p>
+          <button class="btn btn-primary btn-sm" onclick="loadFlashcards(${docId}, true)">🔄 Try Again</button>
+        </div>
+      `;
       contentDiv.style.display = "block";
     }
   } finally {
@@ -591,21 +800,70 @@ async function loadFlashcards(docId, forceRegen = false) {
   }
 }
 
+function updateMasteryUI() {
+  const countText = document.getElementById("masteryCountText");
+  const fill = document.getElementById("masteryProgressFill");
+  if (!currentFlashcards.length) return;
+
+  const total = currentFlashcards.length;
+  const count = masteredCards.size;
+  const pct = Math.round((count / total) * 100);
+
+  if (countText) countText.textContent = `${count} of ${total} Mastered (${pct}%)`;
+  if (fill) fill.style.width = `${pct}%`;
+}
+
 function initFlashcardsUI() {
   const cardInner = document.getElementById("flashcardInner");
   const prevBtn = document.getElementById("prevCardBtn");
   const nextBtn = document.getElementById("nextCardBtn");
   const flipBtn = document.getElementById("flipCardBtn");
+  const markMasteredBtn = document.getElementById("markMasteredBtn");
+  const markNeedsReviewBtn = document.getElementById("markNeedsReviewBtn");
+  const resetMasteryBtn = document.getElementById("resetMasteryBtn");
 
   if (!cardInner) return;
 
-  cardInner.onclick = () => {
+  cardInner.onclick = (e) => {
+    // Avoid re-flipping if clicking action buttons inside the card
+    if (e.target.closest(".flashcard-mastery-actions")) return;
     cardInner.classList.toggle("flipped");
   };
 
   if (flipBtn) {
     flipBtn.onclick = () => {
       cardInner.classList.toggle("flipped");
+    };
+  }
+
+  if (markMasteredBtn) {
+    markMasteredBtn.onclick = (e) => {
+      e.stopPropagation();
+      masteredCards.add(currentCardIndex);
+      updateMasteryUI();
+      if (currentCardIndex < currentFlashcards.length - 1) {
+        currentCardIndex++;
+        showFlashcard(currentCardIndex);
+      }
+    };
+  }
+
+  if (markNeedsReviewBtn) {
+    markNeedsReviewBtn.onclick = (e) => {
+      e.stopPropagation();
+      masteredCards.delete(currentCardIndex);
+      updateMasteryUI();
+      if (currentCardIndex < currentFlashcards.length - 1) {
+        currentCardIndex++;
+        showFlashcard(currentCardIndex);
+      }
+    };
+  }
+
+  if (resetMasteryBtn) {
+    resetMasteryBtn.onclick = () => {
+      masteredCards.clear();
+      updateMasteryUI();
     };
   }
 
@@ -640,6 +898,20 @@ function initFlashcardsUI() {
     } else if (e.key === " " || e.key === "ArrowUp" || e.key === "ArrowDown") {
       e.preventDefault();
       cardInner.classList.toggle("flipped");
+    } else if (e.key === "1") {
+      masteredCards.delete(currentCardIndex);
+      updateMasteryUI();
+      if (currentCardIndex < currentFlashcards.length - 1) {
+        currentCardIndex++;
+        showFlashcard(currentCardIndex);
+      }
+    } else if (e.key === "2") {
+      masteredCards.add(currentCardIndex);
+      updateMasteryUI();
+      if (currentCardIndex < currentFlashcards.length - 1) {
+        currentCardIndex++;
+        showFlashcard(currentCardIndex);
+      }
     }
   });
 
@@ -699,7 +971,13 @@ async function loadQuiz(docId, forceRegen = false) {
     quizLoaded = true;
   } catch (err) {
     if (contentDiv) {
-      contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
+      contentDiv.innerHTML = `
+        <div class="retry-error-card">
+          <h3>⚠️ Notice on AI Generation</h3>
+          <p>${escapeHtml(err.message)}</p>
+          <button class="btn btn-primary btn-sm" onclick="loadQuiz(${docId}, true)">🔄 Try Again</button>
+        </div>
+      `;
       contentDiv.style.display = "block";
     }
   } finally {
@@ -748,13 +1026,14 @@ function renderQuizUI(docId) {
 
   html += `
     <div id="quizResultBox" style="display: none;" class="quiz-result-card">
-      <div style="font-size: 2rem;">🏆</div>
+      <div style="font-size: 2.25rem;">🏆</div>
       <h2 style="font-size: 1.5rem; font-weight: 800; margin-top: 0.5rem;">Quiz Completed!</h2>
       <div class="quiz-result-score" id="quizFinalScoreDisplay">0 / 5</div>
       <p id="quizScoreFeedback" style="color: var(--text-muted); margin-bottom: 1.5rem;">Great work testing your knowledge.</p>
-      <div style="display: flex; justify-content: center; gap: 1rem;">
-        <button class="btn btn-primary" onclick="restartQuiz(${docId})">Try Again</button>
+      <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+        <button class="btn btn-primary" onclick="restartQuiz(${docId})">Retake Quiz</button>
         <button class="btn btn-secondary" onclick="reviewQuiz()">Review Answers</button>
+        <a href="/export/mcqs/${docId}" class="btn btn-outline">Download Quiz PDF</a>
       </div>
     </div>
   </div>`;
@@ -807,8 +1086,8 @@ async function calculateAndSubmitQuiz(docId) {
   if (scoreDisplay) scoreDisplay.textContent = `${score} / ${currentMCQs.length}`;
   if (feedback) {
     const pct = (score / currentMCQs.length) * 100;
-    if (pct === 100) feedback.textContent = "Outstanding! Perfect score! You know this material inside out.";
-    else if (pct >= 80) feedback.textContent = "Great job! Strong comprehension of this document.";
+    if (pct === 100) feedback.innerHTML = `<span style="color: #059669; font-weight: 700;">🎉 Perfect Score! Outstanding Mastery!</span> You know this material inside out.`;
+    else if (pct >= 80) feedback.innerHTML = `<span style="color: #059669; font-weight: 700;">🌟 Excellent job!</span> Strong comprehension of this document.`;
     else if (pct >= 60) feedback.textContent = "Good attempt! Review the flashcards and questions to strengthen weak spots.";
     else feedback.textContent = "Keep practicing! Use the AI Summary and Flashcards to brush up.";
   }
@@ -876,6 +1155,22 @@ async function initChat(docId) {
         chatInput.placeholder = placeholders[currentChatMode] || placeholders.normal;
       }
     });
+  });
+
+  // Quick Suggestion Chips
+  document.querySelectorAll(".chat-chip-btn").forEach((chip) => {
+    chip.onclick = () => {
+      const prompt = chip.dataset.prompt;
+      const mode = chip.dataset.mode;
+      if (chatInput && prompt) {
+        chatInput.value = prompt;
+        if (mode) {
+          const matchingPill = document.querySelector(`.chat-mode-pill[data-mode="${mode}"]`);
+          if (matchingPill) matchingPill.click();
+        }
+        handleSendMessage();
+      }
+    };
   });
 
   // Load chat history safely
