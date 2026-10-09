@@ -1,6 +1,8 @@
 import os
 import re
 import json
+import logging
+from datetime import timedelta
 from functools import wraps
 from flask import (
     Flask, render_template, request, redirect, url_for, flash,
@@ -28,6 +30,9 @@ from services.export_service import generate_pdf_export
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Set persistent session lifetime (7 days)
+app.permanent_session_lifetime = timedelta(days=7)
+
 # Ensure required directories exist and initialize database
 os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(Config.GENERATED_PDF_FOLDER, exist_ok=True)
@@ -36,10 +41,27 @@ init_db()
 # ------------------------------------------------------------------------------
 # Authentication & Context Helpers
 # ------------------------------------------------------------------------------
+def is_ajax_or_api_request():
+    return (
+        request.path.startswith("/api/")
+        or request.path.startswith("/upload")
+        or request.headers.get("X-Requested-With") == "XMLHttpRequest"
+        or request.is_json
+        or "application/json" in request.headers.get("Accept", "")
+    )
+
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if "user_id" not in session:
+            # If this is an AJAX or API request, NEVER return an HTML redirect page!
+            if is_ajax_or_api_request():
+                return jsonify({
+                    "success": False,
+                    "error": "Your session has expired or you are not logged in. Please log in to continue.",
+                    "authenticated": False,
+                    "redirect_url": url_for("login")
+                }), 401
             flash("Please log in to access this page.", "warning")
             return redirect(url_for("login", next=request.url))
         return f(*args, **kwargs)
@@ -77,7 +99,6 @@ def register():
             flash("All fields are required. Please fill in all information.", "error")
             return render_template("register.html", name=name, email=email)
 
-        # Basic email regex validation
         if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
             flash("Please enter a valid email address.", "error")
             return render_template("register.html", name=name, email=email)
@@ -101,6 +122,7 @@ def register():
 
         if user_id:
             session.clear()
+            session.permanent = True
             session["user_id"] = user_id
             session["user_name"] = name
             session["user_email"] = email
@@ -131,6 +153,7 @@ def login():
 
         # Login successful
         session.clear()
+        session.permanent = True
         session["user_id"] = user["id"]
         session["user_name"] = user["name"]
         session["user_email"] = user["email"]
@@ -164,49 +187,58 @@ def dashboard():
 @login_required
 def upload_file():
     user_id = session["user_id"]
+    is_ajax = is_ajax_or_api_request()
 
-    if "file" not in request.files:
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
-            return jsonify({"success": False, "error": "No file uploaded. Please select a PDF file."}), 400
-        flash("No file selected. Please select a PDF file.", "error")
+    try:
+        if "file" not in request.files:
+            if is_ajax:
+                return jsonify({"success": False, "error": "No file uploaded. Please select a PDF file."}), 400
+            flash("No file selected. Please select a PDF file.", "error")
+            return redirect(url_for("dashboard"))
+
+        file = request.files["file"]
+        if file.filename == "":
+            if is_ajax:
+                return jsonify({"success": False, "error": "No file selected."}), 400
+            flash("No file selected. Please select a PDF file.", "error")
+            return redirect(url_for("dashboard"))
+
+        # Process and extract PDF text
+        result = process_and_extract_pdf(file)
+        if not result["success"]:
+            if is_ajax:
+                return jsonify({"success": False, "error": result["error"]}), 400
+            flash(result["error"], "error")
+            return redirect(url_for("dashboard"))
+
+        # Save to database
+        doc_id = create_document(
+            user_id=user_id,
+            filename=result["filename"],
+            stored_filename=result["stored_filename"],
+            extracted_text=result["text"],
+            file_size=result["file_size"],
+            page_count=result["page_count"]
+        )
+
+        if is_ajax:
+            return jsonify({
+                "success": True,
+                "message": "File processed successfully! Redirecting to study workspace...",
+                "doc_id": doc_id,
+                "redirect_url": url_for("study_workspace", doc_id=doc_id)
+            })
+
+        fname = result["filename"]
+        flash(f"Successfully processed '{fname}'!", "success")
+        return redirect(url_for("study_workspace", doc_id=doc_id))
+
+    except Exception as e:
+        app.logger.error(f"Error during upload: {e}", exc_info=True)
+        if is_ajax:
+            return jsonify({"success": False, "error": f"Failed to process file: {str(e)}"}), 500
+        flash(f"An unexpected error occurred during upload: {str(e)}", "error")
         return redirect(url_for("dashboard"))
-
-    file = request.files["file"]
-    if file.filename == "":
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
-            return jsonify({"success": False, "error": "No file selected."}), 400
-        flash("No file selected. Please select a PDF file.", "error")
-        return redirect(url_for("dashboard"))
-
-    # Process and extract PDF text
-    result = process_and_extract_pdf(file)
-    if not result["success"]:
-        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
-            return jsonify({"success": False, "error": result["error"]}), 400
-        flash(result["error"], "error")
-        return redirect(url_for("dashboard"))
-
-    # Save to database
-    doc_id = create_document(
-        user_id=user_id,
-        filename=result["filename"],
-        stored_filename=result["stored_filename"],
-        extracted_text=result["text"],
-        file_size=result["file_size"],
-        page_count=result["page_count"]
-    )
-
-    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
-        return jsonify({
-            "success": True,
-            "message": "File processed successfully! Redirecting to study workspace...",
-            "doc_id": doc_id,
-            "redirect_url": url_for("study_workspace", doc_id=doc_id)
-        })
-
-    fname = result['filename']
-    flash(f"Successfully processed '{fname}'!", "success")
-    return redirect(url_for("study_workspace", doc_id=doc_id))
 
 # ------------------------------------------------------------------------------
 # Study Materials & History
@@ -313,125 +345,146 @@ def study_workspace(doc_id):
 @app.route("/api/content/<content_type>/<int:doc_id>", methods=["GET", "POST"])
 @login_required
 def get_or_generate_content(content_type, doc_id):
-    user_id = session["user_id"]
-    doc = get_document(doc_id, user_id)
-    if not doc:
-        return jsonify({"success": False, "error": "Document not found."}), 404
+    try:
+        user_id = session["user_id"]
+        doc = get_document(doc_id, user_id)
+        if not doc:
+            return jsonify({"success": False, "error": "Document not found or access denied."}), 404
 
-    if content_type not in ["summary", "questions", "flashcards", "mcqs"]:
-        return jsonify({"success": False, "error": "Invalid content type."}), 400
+        if content_type not in ["summary", "questions", "flashcards", "mcqs"]:
+            return jsonify({"success": False, "error": "Invalid content type."}), 400
 
-    regenerate = request.args.get("regenerate", "false").lower() == "true" or (
-        request.is_json and request.json.get("regenerate", False)
-    )
+        regenerate = request.args.get("regenerate", "false").lower() == "true" or (
+            request.is_json and request.json.get("regenerate", False)
+        )
 
-    # Check if already generated
-    if not regenerate:
-        cached = get_study_content(doc_id, content_type)
-        if cached:
-            try:
-                data = json.loads(cached["content"])
-                return jsonify({"success": True, "cached": True, "data": data})
-            except Exception:
-                pass
+        # Check if already generated
+        if not regenerate:
+            cached = get_study_content(doc_id, content_type)
+            if cached and cached["content"]:
+                try:
+                    data = json.loads(cached["content"])
+                    return jsonify({"success": True, "cached": True, "data": data})
+                except Exception:
+                    pass
 
-    # Call AI generation service
-    text = doc["extracted_text"]
-    if content_type == "summary":
-        result = generate_summary(text)
-    elif content_type == "questions":
-        result = generate_questions(text)
-    elif content_type == "flashcards":
-        result = generate_flashcards(text)
-    elif content_type == "mcqs":
-        result = generate_mcqs(text)
+        # Call AI generation service
+        text = doc["extracted_text"]
+        if not text or len(text.strip()) < 10:
+            return jsonify({"success": False, "error": "No readable text found in this document to analyze."}), 400
 
-    if not result.get("success"):
-        return jsonify({"success": False, "error": result.get("error", "Generation failed.")}), 500
+        if content_type == "summary":
+            result = generate_summary(text)
+        elif content_type == "questions":
+            result = generate_questions(text)
+        elif content_type == "flashcards":
+            result = generate_flashcards(text)
+        elif content_type == "mcqs":
+            result = generate_mcqs(text)
+        else:
+            return jsonify({"success": False, "error": "Unknown content type."}), 400
 
-    # Save to database
-    save_study_content(doc_id, content_type, json.dumps(result["data"]))
-    return jsonify({"success": True, "cached": False, "data": result["data"]})
+        if not result.get("success"):
+            return jsonify({"success": False, "error": result.get("error", "AI generation failed. Please try again.")}), 500
+
+        # Save to database
+        save_study_content(doc_id, content_type, json.dumps(result["data"]))
+        return jsonify({"success": True, "cached": False, "data": result["data"]})
+
+    except Exception as e:
+        app.logger.error(f"Error in get_or_generate_content: {e}", exc_info=True)
+        return jsonify({"success": False, "error": f"Failed to generate {content_type}: {str(e)}"}), 500
 
 @app.route("/api/chat/<int:doc_id>", methods=["GET", "POST"])
 @login_required
 def study_chat(doc_id):
-    user_id = session["user_id"]
-    doc = get_document(doc_id, user_id)
-    if not doc:
-        return jsonify({"success": False, "error": "Document not found."}), 404
+    try:
+        user_id = session["user_id"]
+        doc = get_document(doc_id, user_id)
+        if not doc:
+            return jsonify({"success": False, "error": "Document not found or access denied."}), 404
 
-    if request.method == "GET":
-        history = get_chat_history(user_id, doc_id)
-        chat_list = [
-            {"id": row["id"], "role": row["role"], "message": row["message"], "created_at": row["created_at"]}
-            for row in history
-        ]
-        return jsonify({"success": True, "history": chat_list})
+        if request.method == "GET":
+            history = get_chat_history(user_id, doc_id)
+            chat_list = [
+                {"id": row["id"], "role": row["role"], "message": row["message"], "created_at": row["created_at"]}
+                for row in history
+            ]
+            return jsonify({"success": True, "history": chat_list})
 
-    # POST new chat query
-    data = request.get_json(silent=True) or {}
-    message = data.get("message", "").strip()
-    mode = data.get("mode", "normal")
+        # POST new chat query
+        data = request.get_json(silent=True) or {}
+        message = data.get("message", "").strip()
+        mode = data.get("mode", "normal")
 
-    if not message:
-        return jsonify({"success": False, "error": "Message cannot be empty."}), 400
+        if not message:
+            return jsonify({"success": False, "error": "Message cannot be empty."}), 400
 
-    # Save user message to DB
-    add_chat_message(user_id, doc_id, "user", message)
+        # Save user message to DB
+        add_chat_message(user_id, doc_id, "user", message)
 
-    # Retrieve relevant chunks from extracted document text
-    relevant_chunks, _ = retrieve_relevant_chunks(message, doc["extracted_text"], top_k=4)
+        # Retrieve relevant chunks from extracted document text
+        relevant_chunks, _ = retrieve_relevant_chunks(message, doc["extracted_text"], top_k=4)
 
-    # Fetch recent conversation context
-    recent_history = get_chat_history(user_id, doc_id, limit=6)
-    history_tuples = [{"role": row["role"], "message": row["message"]} for row in recent_history]
+        # Fetch recent conversation context
+        recent_history = get_chat_history(user_id, doc_id, limit=6)
+        history_tuples = [{"role": row["role"], "message": row["message"]} for row in recent_history]
 
-    # Call AI
-    ai_result = chat_with_document(
-        question=message,
-        context_chunks=relevant_chunks,
-        chat_history_list=history_tuples,
-        mode=mode
-    )
+        # Call AI
+        ai_result = chat_with_document(
+            question=message,
+            context_chunks=relevant_chunks,
+            chat_history_list=history_tuples,
+            mode=mode
+        )
 
-    if not ai_result.get("success"):
-        return jsonify({"success": False, "error": ai_result.get("error", "AI failed to respond.")}), 500
+        if not ai_result.get("success"):
+            return jsonify({"success": False, "error": ai_result.get("error", "AI failed to respond.")}), 500
 
-    answer = ai_result["answer"]
-    # Save assistant message to DB
-    add_chat_message(user_id, doc_id, "assistant", answer)
+        answer = ai_result["answer"]
+        # Save assistant message to DB
+        add_chat_message(user_id, doc_id, "assistant", answer)
 
-    return jsonify({"success": True, "answer": answer, "mode": mode})
+        return jsonify({"success": True, "answer": answer, "mode": mode})
+
+    except Exception as e:
+        app.logger.error(f"Error in study_chat: {e}", exc_info=True)
+        return jsonify({"success": False, "error": f"Chat service error: {str(e)}"}), 500
 
 @app.route("/api/chat/clear/<int:doc_id>", methods=["POST"])
 @login_required
 def clear_chat(doc_id):
-    user_id = session["user_id"]
-    clear_chat_history(user_id, doc_id)
-    return jsonify({"success": True, "message": "Chat history cleared."})
+    try:
+        user_id = session["user_id"]
+        clear_chat_history(user_id, doc_id)
+        return jsonify({"success": True, "message": "Chat history cleared."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/api/quiz/submit/<int:doc_id>", methods=["POST"])
 @login_required
 def submit_quiz(doc_id):
-    user_id = session["user_id"]
-    doc = get_document(doc_id, user_id)
-    if not doc:
-        return jsonify({"success": False, "error": "Document not found."}), 404
+    try:
+        user_id = session["user_id"]
+        doc = get_document(doc_id, user_id)
+        if not doc:
+            return jsonify({"success": False, "error": "Document not found."}), 404
 
-    payload = request.get_json(silent=True) or {}
-    score = int(payload.get("score", 0))
-    total_questions = int(payload.get("total_questions", 5))
-    details = payload.get("details", {})
+        payload = request.get_json(silent=True) or {}
+        score = int(payload.get("score", 0))
+        total_questions = int(payload.get("total_questions", 5))
+        details = payload.get("details", {})
 
-    quiz_id = save_quiz_result(user_id, doc_id, score, total_questions, details)
-    return jsonify({
-        "success": True,
-        "quiz_id": quiz_id,
-        "score": score,
-        "total_questions": total_questions,
-        "message": f"Quiz submitted! Your score: {score}/{total_questions}"
-    })
+        quiz_id = save_quiz_result(user_id, doc_id, score, total_questions, details)
+        return jsonify({
+            "success": True,
+            "quiz_id": quiz_id,
+            "score": score,
+            "total_questions": total_questions,
+            "message": f"Quiz submitted! Your score: {score}/{total_questions}"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # ------------------------------------------------------------------------------
 # PDF Export Route
@@ -471,20 +524,33 @@ def export_pdf(content_type, doc_id):
     )
 
 # ------------------------------------------------------------------------------
-# Error Handlers
+# Robust Error Handlers (Always JSON for API requests)
 # ------------------------------------------------------------------------------
 @app.errorhandler(404)
 def page_not_found(e):
+    if is_ajax_or_api_request():
+        return jsonify({"success": False, "error": "The requested API endpoint was not found."}), 404
     return render_template("base.html", error_title="404 - Page Not Found", error_message="The page you requested does not exist."), 404
 
 @app.errorhandler(413)
 def request_entity_too_large(e):
+    if is_ajax_or_api_request():
+        return jsonify({"success": False, "error": "The uploaded file is too large. Maximum allowed size is 16 MB."}), 413
     flash("The uploaded file is too large. Maximum allowed size is 16 MB.", "error")
     return redirect(url_for("dashboard"))
 
 @app.errorhandler(500)
 def server_error(e):
+    if is_ajax_or_api_request():
+        return jsonify({"success": False, "error": "An internal server error occurred. Please try again."}), 500
     return render_template("base.html", error_title="500 - Server Error", error_message="An internal server error occurred. Our team has been notified."), 500
+
+@app.errorhandler(Exception)
+def handle_unexpected_exception(e):
+    app.logger.error(f"Unhandled Exception on {request.path}: {str(e)}", exc_info=True)
+    if is_ajax_or_api_request():
+        return jsonify({"success": False, "error": f"Server error: {str(e)}"}), 500
+    return render_template("base.html", error_title="500 - Server Error", error_message="An unexpected error occurred. Please try again."), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

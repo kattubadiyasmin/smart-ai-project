@@ -12,6 +12,59 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // -----------------------------------------------------------------------------
+// Safe API Fetch Wrapper (Prevents HTML "Unexpected token <" JSON parsing bugs)
+// -----------------------------------------------------------------------------
+async function safeApiFetch(url, options = {}) {
+  const defaultHeaders = {
+    "X-Requested-With": "XMLHttpRequest",
+    "Accept": "application/json",
+  };
+
+  options.headers = {
+    ...defaultHeaders,
+    ...(options.headers || {}),
+  };
+
+  options.credentials = "same-origin";
+
+  let response;
+  try {
+    response = await fetch(url, options);
+  } catch (netErr) {
+    throw new Error(`Network connection error: ${netErr.message || "Failed to reach server"}. Please verify your connection.`);
+  }
+
+  // Handle session expiration or unauthorized redirect
+  if (response.status === 401 || (response.redirected && response.url.includes("/login"))) {
+    window.location.href = "/login";
+    throw new Error("Your session has expired. Redirecting to login page...");
+  }
+
+  // Check content type to ensure we NEVER parse HTML error pages as JSON
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    const rawText = await response.text();
+    if (rawText.includes("<!DOCTYPE") || rawText.includes("<html") || rawText.includes("<!doctype")) {
+      throw new Error(`Server returned an unexpected page (${response.status}). Please refresh and try again.`);
+    }
+    throw new Error(`Unexpected server response format (${response.status}).`);
+  }
+
+  let data;
+  try {
+    data = await response.json();
+  } catch (jsonErr) {
+    throw new Error("Invalid response format received from server. Please try again.");
+  }
+
+  if (!response.ok || data.success === false) {
+    throw new Error(data.error || `Request failed with status ${response.status}`);
+  }
+
+  return data;
+}
+
+// -----------------------------------------------------------------------------
 // 1. Navbar & Mobile Menu
 // -----------------------------------------------------------------------------
 function initMobileMenu() {
@@ -86,7 +139,7 @@ function initDropzone() {
     }
   });
 
-  function handleFileUpload(file) {
+  async function handleFileUpload(file) {
     if (!file.name.toLowerCase().endsWith(".pdf")) {
       alert("Invalid file format. Please upload a PDF (.pdf) document.");
       return;
@@ -106,33 +159,24 @@ function initDropzone() {
     const formData = new FormData();
     formData.append("file", file);
 
-    fetch("/upload", {
-      method: "POST",
-      body: formData,
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-      },
-    })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Upload failed");
-        }
-        return data;
-      })
-      .then((data) => {
-        if (progressFill) progressFill.style.width = "100%";
-        if (uploadStatus) uploadStatus.textContent = "Processing complete! Redirecting...";
-        setTimeout(() => {
-          window.location.href = data.redirect_url;
-        }, 600);
-      })
-      .catch((error) => {
-        alert(error.message || "Failed to process PDF.");
-        if (dropzoneContent) dropzoneContent.style.opacity = "1";
-        if (progressContainer) progressContainer.style.display = "none";
-        fileInput.value = "";
+    try {
+      const data = await safeApiFetch("/upload", {
+        method: "POST",
+        body: formData,
       });
+
+      if (progressFill) progressFill.style.width = "100%";
+      if (uploadStatus) uploadStatus.textContent = "Processing complete! Redirecting to study workspace...";
+      setTimeout(() => {
+        window.location.href = data.redirect_url;
+      }, 500);
+
+    } catch (error) {
+      alert(error.message || "Failed to process PDF.");
+      if (dropzoneContent) dropzoneContent.style.opacity = "1";
+      if (progressContainer) progressContainer.style.display = "none";
+      fileInput.value = "";
+    }
   }
 }
 
@@ -178,6 +222,7 @@ function initStudyWorkspace() {
   if (!workspaceEl) return;
 
   const docId = workspaceEl.dataset.docId;
+  if (!docId) return;
 
   // Tabs Switching
   const tabs = document.querySelectorAll(".workspace-tab");
@@ -264,7 +309,7 @@ function setupCopyButton(btnId, getTextFn) {
 // SUMMARY MODULE
 // -----------------------------------------------------------------------------
 let summaryLoaded = false;
-function loadSummary(docId, forceRegen = false) {
+async function loadSummary(docId, forceRegen = false) {
   if (summaryLoaded && !forceRegen) return;
 
   const contentDiv = document.getElementById("summaryContentWrapper");
@@ -275,27 +320,24 @@ function loadSummary(docId, forceRegen = false) {
   if (loadingDiv) loadingDiv.style.display = "block";
   if (regenBtn) regenBtn.disabled = true;
 
-  fetch(`/api/content/summary/${docId}${forceRegen ? "?regenerate=true" : ""}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-  })
-    .then((res) => res.json())
-    .then((res) => {
-      if (!res.success) throw new Error(res.error || "Failed to generate summary.");
-      renderSummaryUI(res.data);
-      summaryLoaded = true;
-    })
-    .catch((err) => {
-      if (contentDiv) {
-        contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
-        contentDiv.style.display = "block";
-      }
-    })
-    .finally(() => {
-      if (loadingDiv) loadingDiv.style.display = "none";
-      if (contentDiv) contentDiv.style.display = "block";
-      if (regenBtn) regenBtn.disabled = false;
+  try {
+    const res = await safeApiFetch(`/api/content/summary/${docId}${forceRegen ? "?regenerate=true" : ""}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
     });
+
+    renderSummaryUI(res.data);
+    summaryLoaded = true;
+  } catch (err) {
+    if (contentDiv) {
+      contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
+      contentDiv.style.display = "block";
+    }
+  } finally {
+    if (loadingDiv) loadingDiv.style.display = "none";
+    if (contentDiv) contentDiv.style.display = "block";
+    if (regenBtn) regenBtn.disabled = false;
+  }
 }
 
 function renderSummaryUI(data) {
@@ -421,7 +463,7 @@ function renderSummaryUI(data) {
 // IMPORTANT QUESTIONS MODULE
 // -----------------------------------------------------------------------------
 let questionsLoaded = false;
-function loadQuestions(docId, forceRegen = false) {
+async function loadQuestions(docId, forceRegen = false) {
   if (questionsLoaded && !forceRegen) return;
 
   const contentDiv = document.getElementById("questionsListWrapper");
@@ -432,27 +474,24 @@ function loadQuestions(docId, forceRegen = false) {
   if (loadingDiv) loadingDiv.style.display = "block";
   if (regenBtn) regenBtn.disabled = true;
 
-  fetch(`/api/content/questions/${docId}${forceRegen ? "?regenerate=true" : ""}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-  })
-    .then((res) => res.json())
-    .then((res) => {
-      if (!res.success) throw new Error(res.error || "Failed to generate questions.");
-      renderQuestionsUI(res.data);
-      questionsLoaded = true;
-    })
-    .catch((err) => {
-      if (contentDiv) {
-        contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
-        contentDiv.style.display = "block";
-      }
-    })
-    .finally(() => {
-      if (loadingDiv) loadingDiv.style.display = "none";
-      if (contentDiv) contentDiv.style.display = "block";
-      if (regenBtn) regenBtn.disabled = false;
+  try {
+    const res = await safeApiFetch(`/api/content/questions/${docId}${forceRegen ? "?regenerate=true" : ""}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
     });
+
+    renderQuestionsUI(res.data);
+    questionsLoaded = true;
+  } catch (err) {
+    if (contentDiv) {
+      contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
+      contentDiv.style.display = "block";
+    }
+  } finally {
+    if (loadingDiv) loadingDiv.style.display = "none";
+    if (contentDiv) contentDiv.style.display = "block";
+    if (regenBtn) regenBtn.disabled = false;
+  }
 }
 
 function renderQuestionsUI(questions) {
@@ -519,7 +558,7 @@ let flashcardsLoaded = false;
 let currentFlashcards = [];
 let currentCardIndex = 0;
 
-function loadFlashcards(docId, forceRegen = false) {
+async function loadFlashcards(docId, forceRegen = false) {
   if (flashcardsLoaded && !forceRegen) return;
 
   const contentDiv = document.getElementById("flashcardsStageWrapper");
@@ -530,29 +569,26 @@ function loadFlashcards(docId, forceRegen = false) {
   if (loadingDiv) loadingDiv.style.display = "block";
   if (regenBtn) regenBtn.disabled = true;
 
-  fetch(`/api/content/flashcards/${docId}${forceRegen ? "?regenerate=true" : ""}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-  })
-    .then((res) => res.json())
-    .then((res) => {
-      if (!res.success) throw new Error(res.error || "Failed to generate flashcards.");
-      currentFlashcards = res.data || [];
-      currentCardIndex = 0;
-      initFlashcardsUI();
-      flashcardsLoaded = true;
-    })
-    .catch((err) => {
-      if (contentDiv) {
-        contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
-        contentDiv.style.display = "block";
-      }
-    })
-    .finally(() => {
-      if (loadingDiv) loadingDiv.style.display = "none";
-      if (contentDiv) contentDiv.style.display = "block";
-      if (regenBtn) regenBtn.disabled = false;
+  try {
+    const res = await safeApiFetch(`/api/content/flashcards/${docId}${forceRegen ? "?regenerate=true" : ""}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
     });
+
+    currentFlashcards = res.data || [];
+    currentCardIndex = 0;
+    initFlashcardsUI();
+    flashcardsLoaded = true;
+  } catch (err) {
+    if (contentDiv) {
+      contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
+      contentDiv.style.display = "block";
+    }
+  } finally {
+    if (loadingDiv) loadingDiv.style.display = "none";
+    if (contentDiv) contentDiv.style.display = "block";
+    if (regenBtn) regenBtn.disabled = false;
+  }
 }
 
 function initFlashcardsUI() {
@@ -563,7 +599,6 @@ function initFlashcardsUI() {
 
   if (!cardInner) return;
 
-  // Flip trigger on click
   cardInner.onclick = () => {
     cardInner.classList.toggle("flipped");
   };
@@ -592,7 +627,6 @@ function initFlashcardsUI() {
     };
   }
 
-  // Keyboard navigation
   document.addEventListener("keydown", (e) => {
     const pane = document.getElementById("flashcardsPane");
     if (!pane || !pane.classList.contains("active")) return;
@@ -623,7 +657,6 @@ function showFlashcard(index) {
 
   if (!currentFlashcards || currentFlashcards.length === 0) return;
 
-  // Reset flip to front
   if (cardInner) cardInner.classList.remove("flipped");
 
   const card = currentFlashcards[index];
@@ -643,7 +676,7 @@ let quizLoaded = false;
 let currentMCQs = [];
 let quizUserAnswers = {};
 
-function loadQuiz(docId, forceRegen = false) {
+async function loadQuiz(docId, forceRegen = false) {
   if (quizLoaded && !forceRegen) return;
 
   const contentDiv = document.getElementById("quizContentWrapper");
@@ -654,29 +687,26 @@ function loadQuiz(docId, forceRegen = false) {
   if (loadingDiv) loadingDiv.style.display = "block";
   if (regenBtn) regenBtn.disabled = true;
 
-  fetch(`/api/content/mcqs/${docId}${forceRegen ? "?regenerate=true" : ""}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-  })
-    .then((res) => res.json())
-    .then((res) => {
-      if (!res.success) throw new Error(res.error || "Failed to generate quiz.");
-      currentMCQs = res.data || [];
-      quizUserAnswers = {};
-      renderQuizUI(docId);
-      quizLoaded = true;
-    })
-    .catch((err) => {
-      if (contentDiv) {
-        contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
-        contentDiv.style.display = "block";
-      }
-    })
-    .finally(() => {
-      if (loadingDiv) loadingDiv.style.display = "none";
-      if (contentDiv) contentDiv.style.display = "block";
-      if (regenBtn) regenBtn.disabled = false;
+  try {
+    const res = await safeApiFetch(`/api/content/mcqs/${docId}${forceRegen ? "?regenerate=true" : ""}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
     });
+
+    currentMCQs = res.data || [];
+    quizUserAnswers = {};
+    renderQuizUI(docId);
+    quizLoaded = true;
+  } catch (err) {
+    if (contentDiv) {
+      contentDiv.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(err.message)}</div>`;
+      contentDiv.style.display = "block";
+    }
+  } finally {
+    if (loadingDiv) loadingDiv.style.display = "none";
+    if (contentDiv) contentDiv.style.display = "block";
+    if (regenBtn) regenBtn.disabled = false;
+  }
 }
 
 function renderQuizUI(docId) {
@@ -733,7 +763,6 @@ function renderQuizUI(docId) {
 }
 
 window.selectQuizOption = function (qIdx, selectedLetter, correctLetter, docId) {
-  // If already answered this question, don't allow re-clicking
   if (quizUserAnswers[qIdx] !== undefined) return;
 
   quizUserAnswers[qIdx] = selectedLetter;
@@ -757,13 +786,12 @@ window.selectQuizOption = function (qIdx, selectedLetter, correctLetter, docId) 
 
   if (expBox) expBox.style.display = "block";
 
-  // Check if all questions have been answered
   if (Object.keys(quizUserAnswers).length === currentMCQs.length) {
     calculateAndSubmitQuiz(docId);
   }
 };
 
-function calculateAndSubmitQuiz(docId) {
+async function calculateAndSubmitQuiz(docId) {
   let score = 0;
   currentMCQs.forEach((mcq, idx) => {
     const normCorrect = mcq.correct_answer.trim().toUpperCase();
@@ -772,7 +800,6 @@ function calculateAndSubmitQuiz(docId) {
     }
   });
 
-  // Display result box
   const resultBox = document.getElementById("quizResultBox");
   const scoreDisplay = document.getElementById("quizFinalScoreDisplay");
   const feedback = document.getElementById("quizScoreFeedback");
@@ -791,16 +818,19 @@ function calculateAndSubmitQuiz(docId) {
     resultBox.scrollIntoView({ behavior: "smooth" });
   }
 
-  // Submit to backend
-  fetch(`/api/quiz/submit/${docId}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      score: score,
-      total_questions: currentMCQs.length,
-      details: quizUserAnswers,
-    }),
-  }).catch(() => {});
+  try {
+    await safeApiFetch(`/api/quiz/submit/${docId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        score: score,
+        total_questions: currentMCQs.length,
+        details: quizUserAnswers,
+      }),
+    });
+  } catch (err) {
+    console.warn("Quiz result could not be saved to history:", err);
+  }
 }
 
 window.restartQuiz = function (docId) {
@@ -819,7 +849,7 @@ window.reviewQuiz = function () {
 let chatInitialized = false;
 let currentChatMode = "normal";
 
-function initChat(docId) {
+async function initChat(docId) {
   if (chatInitialized) return;
 
   const chatContainer = document.getElementById("chatMessages");
@@ -835,7 +865,6 @@ function initChat(docId) {
       currentChatMode = pill.dataset.mode;
       if (chatInput) {
         chatInput.focus();
-        // Set placeholder based on mode
         const placeholders = {
           normal: "Ask any question about this document...",
           explain_simply: "What topic should I explain in simple words?",
@@ -849,22 +878,22 @@ function initChat(docId) {
     });
   });
 
-  // Load chat history
-  fetch(`/api/chat/${docId}`)
-    .then((res) => res.json())
-    .then((res) => {
-      if (res.success && res.history && res.history.length > 0) {
-        chatContainer.innerHTML = "";
-        res.history.forEach((msg) => {
-          appendMessageUI(msg.role, msg.message);
-        });
-      }
-      scrollChatToBottom();
-    })
-    .catch(() => {});
+  // Load chat history safely
+  try {
+    const res = await safeApiFetch(`/api/chat/${docId}`);
+    if (res.success && res.history && res.history.length > 0) {
+      chatContainer.innerHTML = "";
+      res.history.forEach((msg) => {
+        appendMessageUI(msg.role, msg.message);
+      });
+    }
+    scrollChatToBottom();
+  } catch (err) {
+    console.warn("Could not load previous chat history:", err);
+  }
 
   // Send message handler
-  function handleSendMessage() {
+  async function handleSendMessage() {
     const text = chatInput.value.trim();
     if (!text) return;
 
@@ -872,34 +901,27 @@ function initChat(docId) {
     chatInput.value = "";
     scrollChatToBottom();
 
-    // Show AI typing indicator
     const typingId = appendTypingIndicator();
     scrollChatToBottom();
 
-    sendBtn.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
 
-    fetch(`/api/chat/${docId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: text, mode: currentChatMode }),
-    })
-      .then((res) => res.json())
-      .then((res) => {
-        removeTypingIndicator(typingId);
-        if (!res.success) {
-          appendMessageUI("assistant", `⚠️ Error: ${res.error || "Unable to get response."}`);
-        } else {
-          appendMessageUI("assistant", res.answer);
-        }
-      })
-      .catch((err) => {
-        removeTypingIndicator(typingId);
-        appendMessageUI("assistant", `⚠️ Connection error: ${err.message}`);
-      })
-      .finally(() => {
-        sendBtn.disabled = false;
-        scrollChatToBottom();
+    try {
+      const res = await safeApiFetch(`/api/chat/${docId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, mode: currentChatMode }),
       });
+
+      removeTypingIndicator(typingId);
+      appendMessageUI("assistant", res.answer);
+    } catch (err) {
+      removeTypingIndicator(typingId);
+      appendMessageUI("assistant", `⚠️ ${err.message}`);
+    } finally {
+      if (sendBtn) sendBtn.disabled = false;
+      scrollChatToBottom();
+    }
   }
 
   if (sendBtn) sendBtn.onclick = handleSendMessage;
@@ -914,20 +936,21 @@ function initChat(docId) {
 
   // Clear chat
   if (clearBtn) {
-    clearBtn.onclick = () => {
+    clearBtn.onclick = async () => {
       if (confirm("Are you sure you want to clear your chat history for this document?")) {
-        fetch(`/api/chat/clear/${docId}`, { method: "POST" })
-          .then(() => {
-            chatContainer.innerHTML = `
-              <div class="chat-msg chat-msg-assistant">
-                <div class="msg-avatar msg-avatar-ai">🤖</div>
-                <div class="msg-bubble">
-                  Chat history cleared. I'm ready to answer any questions about your study material!
-                </div>
+        try {
+          await safeApiFetch(`/api/chat/clear/${docId}`, { method: "POST" });
+          chatContainer.innerHTML = `
+            <div class="chat-msg chat-msg-assistant">
+              <div class="msg-avatar msg-avatar-ai">🤖</div>
+              <div class="msg-bubble">
+                Chat history cleared. I'm ready to answer any questions about your study material!
               </div>
-            `;
-          })
-          .catch(() => {});
+            </div>
+          `;
+        } catch (err) {
+          alert(`Failed to clear chat: ${err.message}`);
+        }
       }
     };
   }
