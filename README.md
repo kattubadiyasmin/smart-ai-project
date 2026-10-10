@@ -162,8 +162,8 @@ smart-study/
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/kattubadiyasmin/smart-study.git
-cd smart-study
+git clone https://github.com/kattubadiyasmin/smart-ai-project.git
+cd smart-ai-project
 ```
 
 ### 2. Create and activate a virtual environment
@@ -210,7 +210,7 @@ Open your browser and navigate to `http://localhost:5000`.
 Smart Study is configured for seamless deployment on Render:
 1. Push your repository to GitHub.
 2. In the Render Dashboard, create a new **Web Service**.
-3. Connect your `smart-study` GitHub repository.
+3. Connect your `smart-ai-project` GitHub repository.
 4. Set the following settings:
    - **Environment:** `Python 3`
    - **Build Command:** `pip install -r requirements.txt`
